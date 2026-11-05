@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+<<<<<<< HEAD
+//un blocco letto dal disco, visto con il tipo che serve
+=======
 // un blocco letto dal disco, visto con il tipo che serve
+>>>>>>> origin
 typedef union {
   FirstFileBlock ff;
   FirstDirectoryBlock fd;
@@ -11,12 +15,23 @@ typedef union {
   char raw[BLOCK_SIZE];
 } Block;
 
+<<<<<<< HEAD
+//Lo scopo di questi assert è di assicurarci che tutto sia stato correttamente inizializzato senza
+//dover usare assert nei singoli metodi
+=======
 //Lo scopo di questi assert è di assicurarci che tutto sia stato correttamente inizializzato
+>>>>>>> origin
 _Static_assert(sizeof(FirstFileBlock) == BLOCK_SIZE, "FirstFileBlock != BLOCK_SIZE");
 _Static_assert(sizeof(FileBlock) == BLOCK_SIZE, "FileBlock != BLOCK_SIZE");
 _Static_assert(sizeof(FirstDirectoryBlock) == BLOCK_SIZE, "FirstDirectoryBlock != BLOCK_SIZE");
 _Static_assert(sizeof(DirectoryBlock) == BLOCK_SIZE, "DirectoryBlock != BLOCK_SIZE");
 
+<<<<<<< HEAD
+
+//blocchi che servono per n entry
+#define DIR_BLOCKS(n) ((n) > DIR_FIRST_CAP ? 1 + ((n) - DIR_FIRST_CAP + DIR_NEXT_CAP - 1) / DIR_NEXT_CAP : 1)
+=======
+>>>>>>> origin
 #define NAME_SIZE      ((int)sizeof(((FileControlBlock*)0)->name))
 #define FIRST_DATA     ((int)sizeof(((FirstFileBlock*)0)->data))
 #define NEXT_DATA      ((int)sizeof(((FileBlock*)0)->data))
@@ -24,9 +39,15 @@ _Static_assert(sizeof(DirectoryBlock) == BLOCK_SIZE, "DirectoryBlock != BLOCK_SI
 #define DIR_NEXT_CAP   ((int)(sizeof(((DirectoryBlock*)0)->file_blocks) / sizeof(int)))
 
 //Metodi per la gestione dei blocchi di una directory
+<<<<<<< HEAD
+//Una directory è una catena di blocchi (FirstDirectoryBlock + DirectoryBlock)
+
+//libera tutti i blocchi della catena di directory aggiornando la bitmap di conseguenza
+=======
 //Una directory è un array di numeri di blocco distribuito su una catena (FirstDirectoryBlock + DirectoryBlock):
 //invece di accedere alle singole entry la si legge e la si riscrive per intero con dir_load e dir_store.
 
+>>>>>>> origin
 static void free_chain(DiskDriver* disk, int first) {
   Block b;
   for (int cur = first; cur != -1;) {
@@ -37,6 +58,73 @@ static void free_chain(DiskDriver* disk, int first) {
   }
 }
 
+<<<<<<< HEAD
+//legge l'n-esimo blocco della catena, con n=0 legge il primo.
+//Restituisce -1 se non esiste
+static int chain_at(DiskDriver* disk, FirstDirectoryBlock* dcb, int n, Block* out) {
+  int cur = dcb->fcb.block_in_disk;
+  memcpy(out, dcb, sizeof *dcb);
+  for (int k = 0; k < n; k++) {
+    cur = out->ff.header.next_block;
+    if (cur == -1 || DiskDriver_readBlock(disk, out, cur) < 0) return -1;
+  }
+  return cur;
+}
+
+//numero di blocco dell'entry idx, -1 se non esiste
+static int dir_get(DiskDriver* disk, FirstDirectoryBlock* dcb, int idx) {
+  if (idx < 0 || idx >= dcb->num_entries) return -1;
+  if (idx < DIR_FIRST_CAP) return dcb->file_blocks[idx];
+  Block b;
+  int j = idx - DIR_FIRST_CAP;
+  return chain_at(disk, dcb, 1 + j / DIR_NEXT_CAP, &b) < 0 ? -1 : b.db.file_blocks[j % DIR_NEXT_CAP];
+}
+
+//scrive l'entry idx e salva il blocco che la contiene
+static int dir_put(DiskDriver* disk, FirstDirectoryBlock* dcb, int idx, int val) {
+  if (idx < DIR_FIRST_CAP) {
+    dcb->file_blocks[idx] = val;
+    return DiskDriver_writeBlock(disk, dcb, dcb->fcb.block_in_disk);
+  }
+  Block b;
+  int j = idx - DIR_FIRST_CAP;
+  int ret = chain_at(disk, dcb, 1 + j / DIR_NEXT_CAP, &b);
+  if (ret < 0) return -1;
+  b.db.file_blocks[j % DIR_NEXT_CAP] = val;
+  return DiskDriver_writeBlock(disk, &b, ret);
+}
+
+//ridimensiona l'intera catena di blocchi di directory, poi salva dcb
+static int dir_resize(DiskDriver* disk, FirstDirectoryBlock* dcb, int n) {
+  int have = DIR_BLOCKS(dcb->num_entries), need = DIR_BLOCKS(n);
+  if (need != have) {
+    Block b;
+    int low = (have < need ? have : need) - 1;      // ultimo blocco che resta in catena
+    int keep = chain_at(disk, dcb, low, &b);
+    if (keep < 0) return -1;
+    if (need > have) {
+      int nb = DiskDriver_getFreeBlock(disk, 0);
+      if (nb < 0) return -1;                        // disco pieno: nulla è stato modificato
+      Block nbk;
+      memset(&nbk, 0, sizeof nbk);
+      nbk.db.header.previous_block = keep;
+      nbk.db.header.next_block = -1;
+      nbk.db.header.block_in_file = have;
+      if (DiskDriver_writeBlock(disk, &nbk, nb) < 0) return -1;
+      b.ff.header.next_block = nb;
+    } 
+    else 
+    {
+      DiskDriver_freeBlock(disk, b.ff.header.next_block);
+      b.ff.header.next_block = -1;
+    }
+    if (low == 0) dcb->header.next_block = b.ff.header.next_block;   // il primo blocco è la copia in memoria
+    else if (DiskDriver_writeBlock(disk, &b, keep) < 0) return -1;
+  }
+  dcb->num_entries = n;
+  dcb->fcb.size_in_blocks = DIR_BLOCKS(n);
+  return DiskDriver_writeBlock(disk, dcb, dcb->fcb.block_in_disk);
+=======
 // legge i numeri di blocco di tutte le entry; l'array (da liberare) ha un posto libero in più per un'aggiunta
 static int* dir_load(DiskDriver* disk, FirstDirectoryBlock* dcb) {
   int n = dcb->num_entries;
@@ -99,15 +187,37 @@ static int dir_store(DiskDriver* disk, FirstDirectoryBlock* dcb, const int* e, i
     cap = DIR_NEXT_CAP;
     phys = next;
   }
+>>>>>>> origin
 }
 
 //Metodi che rappresentano semplici QoL 
 
+<<<<<<< HEAD
+
+//controlla che n sia un nome valido per un file o una directory
+=======
+>>>>>>> origin
 static int valid_name(const char* n) {
   size_t l = n ? strlen(n) : 0;
   return l > 0 && l < (size_t)NAME_SIZE && !strchr(n, '/') && strcmp(n, ".") && strcmp(n, "..");
 }
 
+<<<<<<< HEAD
+//cerca la directory per una entry di nome "name"
+static int dir_lookup(DiskDriver* disk, FirstDirectoryBlock* dcb, const char* name, int* idx, Block* out) {
+  Block tmp;
+  if (!out) out = &tmp;
+  for (int i = 0; i < dcb->num_entries; i++) {
+    int b = dir_get(disk, dcb, i);
+    if (b < 0 || DiskDriver_readBlock(disk, out, b) < 0) continue;
+    out->ff.fcb.name[NAME_SIZE - 1] = '\0';
+    if (!strcmp(out->ff.fcb.name, name)) {
+      if (idx) *idx = i;
+      return b;
+    }
+  }
+  return -1;
+=======
 // cerca 'name' in dcb; ritorna il blocco dell'entry (e opzionalmente indice e contenuto) o -1
 static int dir_lookup(DiskDriver* disk, FirstDirectoryBlock* dcb, const char* name, int* idx, Block* out) {
   int* e = dir_load(disk, dcb);
@@ -125,6 +235,7 @@ static int dir_lookup(DiskDriver* disk, FirstDirectoryBlock* dcb, const char* na
   }
   free(e);
   return found;
+>>>>>>> origin
 }
 
 static FirstDirectoryBlock* load_dir(DiskDriver* disk, int blk) {
@@ -135,6 +246,21 @@ static FirstDirectoryBlock* load_dir(DiskDriver* disk, int blk) {
   return d;
 }
 
+<<<<<<< HEAD
+//rimuove ricorsivamente una directory e tutti i suoi contenuti
+static void remove_tree(DiskDriver* disk, int blk) {
+  Block b;
+  if (DiskDriver_readBlock(disk, &b, blk) < 0) return;
+  if (b.ff.fcb.is_dir)
+    for (int i = 0; i < b.fd.num_entries; i++) {
+      int c = dir_get(disk, &b.fd, i);
+      if (c >= 0) remove_tree(disk, c);
+    }
+  free_chain(disk, blk);
+}
+
+//controlliamo se siamo nella cwd o fuori
+=======
 static void remove_tree(DiskDriver* disk, int blk) {
   Block b;
   if (DiskDriver_readBlock(disk, &b, blk) < 0) return;
@@ -149,6 +275,7 @@ static void remove_tree(DiskDriver* disk, int blk) {
 }
 
 // true se la directory corrente è target o è contenuta in target
+>>>>>>> origin
 static int cwd_inside(SimpleFS* fs, int target) {
   if (!fs->cwd) return 0;
   Block b;
@@ -160,14 +287,22 @@ static int cwd_inside(SimpleFS* fs, int target) {
   return 0;
 }
 
+<<<<<<< HEAD
+//resetta il puntatore interno al blocco corrente della directory
+=======
+>>>>>>> origin
 static void dir_handle_reset(DirectoryHandle* d) {
   d->current_block = &d->dcb->header;
   d->pos_in_dir = 0;
   d->pos_in_block = 0;
 }
 
+<<<<<<< HEAD
+//sincronizza la directory con il disco
+=======
 // rilegge dal disco il primo blocco della directory: la copia nell'handle invecchia
 // se la stessa directory viene modificata attraverso un altro handle
+>>>>>>> origin
 static int dir_sync(DirectoryHandle* d) {
   Block b;
   if (DiskDriver_readBlock(d->sfs->disk, &b, d->dcb->fcb.block_in_disk) < 0 || !b.ff.fcb.is_dir) return -1;
@@ -176,7 +311,11 @@ static int dir_sync(DirectoryHandle* d) {
 }
 
 
+<<<<<<< HEAD
+//inizializza il filesystem sul disco puntato da fs
+=======
 
+>>>>>>> origin
 void SimpleFS_format(SimpleFS* fs) {
   DiskDriver* disk = fs->disk;
   memset(disk->bitmap_data, 0, (size_t)disk->header->bitmap_entries);
@@ -185,7 +324,11 @@ void SimpleFS_format(SimpleFS* fs) {
 
   Block b;
   memset(&b, 0, sizeof b);
+<<<<<<< HEAD
+  int root = DiskDriver_getFreeBlock(disk, 0);      //sara' il blocco 0
+=======
   int root = DiskDriver_getFreeBlock(disk, 0);      // sara' il blocco 0
+>>>>>>> origin
   b.fd.header.previous_block = -1;
   b.fd.header.next_block = -1;
   b.fd.fcb.directory_block = -1;
@@ -197,10 +340,28 @@ void SimpleFS_format(SimpleFS* fs) {
   fs->cwd = NULL;
 }
 
+<<<<<<< HEAD
+//inizializza il filesystem creato con SimpleFS_format 
+=======
+>>>>>>> origin
 DirectoryHandle* SimpleFS_init(SimpleFS* fs, DiskDriver* disk) {
   fs->disk = disk;
   fs->cwd = NULL;
   FirstDirectoryBlock* root = load_dir(disk, 0);
+<<<<<<< HEAD
+
+  //disco non formattato
+  if (!root || root->fcb.directory_block != -1 || strcmp(root->fcb.name, "/")) {
+    free(root);
+    return NULL;                                   
+  }
+
+  //disco formattato correttamente, siamo ora in /, la root directory
+  DirectoryHandle* h = calloc(1, sizeof *h);
+  h->sfs = fs;
+  h->dcb = root;
+  h->directory = NULL;                              
+=======
   if (!root || root->fcb.directory_block != -1 || strcmp(root->fcb.name, "/")) {
     free(root);
     return NULL;                                   // disco non formattato
@@ -209,12 +370,17 @@ DirectoryHandle* SimpleFS_init(SimpleFS* fs, DiskDriver* disk) {
   h->sfs = fs;
   h->dcb = root;
   h->directory = NULL;                              // NULL = siamo alla radice
+>>>>>>> origin
   dir_handle_reset(h);
   fs->cwd = h;
   return h;
 }
 
+<<<<<<< HEAD
+//crea un file o una directory nella directory d
+=======
 
+>>>>>>> origin
 static int new_node(DirectoryHandle* d, const char* name, int is_dir, Block* out) {
   DiskDriver* disk = d->sfs->disk;
   FirstDirectoryBlock* dcb = d->dcb;
@@ -231,6 +397,10 @@ static int new_node(DirectoryHandle* d, const char* name, int is_dir, Block* out
   out->ff.fcb.size_in_blocks = 1;
   out->ff.fcb.is_dir = is_dir;
   if (DiskDriver_writeBlock(disk, out, b) < 0) return -1;
+<<<<<<< HEAD
+  int n = dcb->num_entries;                        // aggiunge b in coda alle entry
+  if (dir_resize(disk, dcb, n + 1) < 0 || dir_put(disk, dcb, n, b) < 0) {
+=======
   int* e = dir_load(disk, dcb);                    // aggiunge b in coda alle entry
   if (!e) {
     DiskDriver_freeBlock(disk, b);
@@ -240,12 +410,17 @@ static int new_node(DirectoryHandle* d, const char* name, int is_dir, Block* out
   int r = dir_store(disk, dcb, e, dcb->num_entries + 1);
   free(e);
   if (r < 0) {
+>>>>>>> origin
     DiskDriver_freeBlock(disk, b);
     return -1;
   }
   return b;
 }
 
+<<<<<<< HEAD
+//restituisce l'handle per il file appena creato
+=======
+>>>>>>> origin
 static FileHandle* make_file_handle(DirectoryHandle* d, FirstFileBlock* first) {
   FileHandle* f = calloc(1, sizeof *f);
   f->sfs = d->sfs;
@@ -284,7 +459,11 @@ int SimpleFS_close(FileHandle* f) {
 }
 
 
+<<<<<<< HEAD
+//mappa la posizione di un file ai suoi indici di blocco, offset e capacità.
+=======
 // dato il byte pos: blocco logico k (0 = primo), offset nei dati e capacita' dati del blocco
+>>>>>>> origin
 static void locate(int pos, int* k, int* off, int* cap) {
   if (pos < FIRST_DATA) { *k = 0; *off = pos; *cap = FIRST_DATA; }
   else {
@@ -294,8 +473,13 @@ static void locate(int pos, int* k, int* off, int* cap) {
   }
 }
 
+<<<<<<< HEAD
+//carica in *out il blocco in posizione k, con k >=1 e ne ritorna il numero del blocco sul disco.
+//se alloc è true, alloca un nuovo blocco in caso non esiste, altrimenti ritorna -1
+=======
 // carica in *out il k-esimo blocco (k>=1) e ne ritorna il numero fisico;
 // con alloc crea (e concatena) il blocco se manca
+>>>>>>> origin
 static int file_block(FileHandle* f, int k, Block* out, int alloc) {
   DiskDriver* disk = f->sfs->disk;
   Block pb;
@@ -385,6 +569,17 @@ int SimpleFS_seek(FileHandle* f, int pos) {
 int SimpleFS_readDir(char** names, DirectoryHandle* d) {
   DiskDriver* disk = d->sfs->disk;
   if (dir_sync(d) < 0) return -1;
+<<<<<<< HEAD
+  Block b;
+  int n = d->dcb->num_entries;
+  for (int i = 0; i < n; i++) {
+    int blk = dir_get(disk, d->dcb, i);
+    if (blk < 0 || DiskDriver_readBlock(disk, &b, blk) < 0) return -1;
+    strncpy(names[i], b.ff.fcb.name, NAME_SIZE - 1);
+    names[i][NAME_SIZE - 1] = '\0';
+  }
+  return n;
+=======
   int* e = dir_load(disk, d->dcb);
   if (!e) return -1;
   Block b;
@@ -399,6 +594,7 @@ int SimpleFS_readDir(char** names, DirectoryHandle* d) {
   }
   free(e);
   return r;
+>>>>>>> origin
 }
 
 int SimpleFS_changeDir(DirectoryHandle* d, char* dirname) {
@@ -440,6 +636,12 @@ int SimpleFS_removeIn(DirectoryHandle* d, const char* name) {
   int blk = dir_lookup(disk, d->dcb, name, &idx, &b);
   if (blk < 0) return -1;
   if (b.ff.fcb.is_dir && cwd_inside(d->sfs, blk)) return -2;
+<<<<<<< HEAD
+  remove_tree(disk, blk);
+  int last = d->dcb->num_entries - 1;                 // l'ultima entry prende il posto di quella rimossa
+  if (idx != last && dir_put(disk, d->dcb, idx, dir_get(disk, d->dcb, last)) < 0) return -1;
+  return dir_resize(disk, d->dcb, last) < 0 ? -1 : 0;
+=======
   int* e = dir_load(disk, d->dcb);                    // l'ultima entry prende il posto di quella rimossa
   if (!e) return -1;
   remove_tree(disk, blk);
@@ -447,6 +649,7 @@ int SimpleFS_removeIn(DirectoryHandle* d, const char* name) {
   int r = dir_store(disk, d->dcb, e, d->dcb->num_entries - 1);
   free(e);
   return r < 0 ? -1 : 0;
+>>>>>>> origin
 }
 
 DirectoryHandle* SimpleFS_cloneDir(DirectoryHandle* d) {
@@ -468,4 +671,8 @@ void SimpleFS_closeDir(DirectoryHandle* d) {
   free(d->dcb);
   free(d->directory);
   free(d);
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin
