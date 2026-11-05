@@ -13,3 +13,12 @@
   - append "file" "testo"
   - rm "dir/file"
   - close
+  
+  
+## Compilazione e uso
+
+```
+cmake -S . -B build
+cmake --build build
+cd build && ./fs_shell
+```
