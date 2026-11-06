@@ -13,12 +13,13 @@
   - append "file" "testo"
   - rm "dir/file"
   - close
-  
+  - jobs con gestione di processi esterni con fg e bg e ctrl-z
   
 ## Compilazione e uso
 
 ```
 cmake -S . -B build
 cmake --build build
-cd build && ./fs_shell
+cd build
+./fs_shell
 ```
