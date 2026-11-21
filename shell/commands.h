@@ -23,5 +23,3 @@ int cmd_cat(FsContext* ctx, const char* path);
 int cmd_ls(FsContext* ctx, const char* path);           // path NULL = directory corrente
 int cmd_append(FsContext* ctx, const char* path, const char* text);
 int cmd_rm(FsContext* ctx, const char* path);
-int cmd_import(FsContext* ctx, const char* host_path, const char* path);
-int cmd_export(FsContext* ctx, const char* path, const char* host_path);
